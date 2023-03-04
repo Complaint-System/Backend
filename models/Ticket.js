@@ -5,9 +5,11 @@ const Comment = require("./Comment");
 
 const ticketSchema = new Schema(
   {
-    creator: { type: Schema.Types.ObjectId, ref: "User" },
+    creatorId: { type: Schema.Types.ObjectId, ref: "User" },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project" },
     title: { type: String },
     description: { type: String },
+    priority: { type: String, enum: ["High", "Medium", "Low"] },
     comments: [Comment.commentSchema],
   },
   { timestamps: true }

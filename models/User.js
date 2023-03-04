@@ -6,6 +6,7 @@ const userSchema = new Schema(
     email: { type: String },
     password: { type: String },
     phone: { type: String },
+    projectOwner: { type: Boolean },
   },
   { timestamps: true }
 );

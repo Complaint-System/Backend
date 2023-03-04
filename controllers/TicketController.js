@@ -5,23 +5,18 @@ const { User } = require("../models/User");
 
 const createTicket = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
-
-    if (!project) {
-      return res.status(404).send({ error: "Project not found" });
-    }
-
     const ticket = new Ticket({
-      creator: req.user.id,
+      creatorId: req.user.id,
+      projectId: req.params.projectId,
       title: req.body.title,
       description: req.body.description,
       comments: [],
     });
 
-    project.tickets.push(ticket);
-
-    await project.save();
-    return res.status(201).send({ message: "Successfully created", ticket });
+    const savedTicket = await ticket.save();
+    return res
+      .status(201)
+      .send({ message: "Successfully created", savedTicket });
   } catch (error) {
     return res.status(500).send({ error: "Failed to create ticket" });
   }
@@ -29,19 +24,19 @@ const createTicket = async (req, res, next) => {
 
 const showTickets = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.projectId);
+    const tickets = await Ticket.find({
+      projectId: req.params.projectId,
+    }).populate({ path: "creatorId", select: "name" });
 
-    if (!project) {
-      return res.status(404).send({ error: "Project not found" });
-    }
-
-    const tickets = project.tickets;
-    if (tickets) return res.json(tickets);
-    else {
+    if (tickets) {
+      return res.json(tickets);
+    } else {
       return res.status(404).send({ error: "No tickets have been found" });
     }
   } catch (error) {
-    return res.status(500).send({ error: "Failed to create ticket" });
+    return res
+      .status(500)
+      .send({ error: "Failed to show ticket", message: error });
   }
 };
 
@@ -61,8 +56,8 @@ const updateTicket = async (req, res, next) => {
       return res.status(404).send({ error: "Ticket not found" });
     }
 
-    ticket.title = req.body.title;
-    ticket.description = req.body.description;
+    ticket.title = req.body.title || ticket.title;
+    ticket.description = req.body.description || ticket.description;
 
     await project.save();
 

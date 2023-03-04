@@ -86,13 +86,14 @@ const login = async (req, res, next) => {
       });
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.SECRET_KEY, {
+    const token = jwt.sign({ id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
       expiresIn: "1h",
     });
 
     return res.status(200).json({
       message: "Successfully connected",
       token,
+      user,
     });
   } catch (error) {
     return res.status(500).json({

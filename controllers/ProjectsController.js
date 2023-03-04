@@ -30,10 +30,10 @@ const create = async (req, res, next) => {
 
 const show = async (req, res, next) => {
   try {
-    // const user = await User.findById(req.user.id);
-    // if (!user) {
-    //   return res.status(404).send({ error: "User not found" });
-    // }
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).send({ error: "User not found" });
+    }
 
     const projects = await Project.find({ owner: req.user.id });
     if (projects) return res.json(projects);
@@ -48,22 +48,30 @@ const show = async (req, res, next) => {
 };
 
 const update = async (req, res, next) => {
-  // const project = await Project.findById({id: req.params.projectId})
-  // if (!project) {
-  //     return res.status(404).send({ error: "Project not found" });
-  //   }
-
   try {
-    const project = await Project.findByIdAndUpdate(req.params.projectId, {
-      name: req.body.name,
-      description: req.body.description,
-    });
-    await project.save();
-    return res.status(201).send({ message: "Successfully updated", project });
+    const project = await Project.findById(req.params.projectId);
+    if (!project) {
+      return res.status(404).send({ error: "Project not found" });
+    }
+
+    if (project.owner.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .send({ error: "You are not authorized to update this project" });
+    }
+    const updates = req.body;
+    const updatedProject = await Project.findByIdAndUpdate(
+      req.params.projectId,
+      updates
+    );
+
+    return res
+      .status(200)
+      .send({ message: "Successfully updated", updatedProject });
   } catch (error) {
     return res
       .status(400)
-      .send({ error: "Failed to update projects", message: error.message });
+      .send({ message: "Failed to update projects", error });
   }
 };
 
@@ -92,4 +100,11 @@ const deleteProject = async (req, res, next) => {
   }
 };
 
-module.exports = { create, show, update, deleteProject };
+const verifyAuth = async (req, res) => {
+  res.json({
+    message: "Authentication Succeed",
+    user: req.user.id,
+  });
+};
+
+module.exports = { create, show, update, deleteProject, verifyAuth };
