@@ -15,7 +15,7 @@ router.delete("/:projectId", ProjectsController.deleteProject); //deletes a proj
 //Ticket Management
 router.post("/ticket/:projectId", TicketController.createTicket); // creates a ticket in a specific project
 router.get("/ticket/:projectId", TicketController.showTickets); // return All tickets in a specific project
-router.put("/ticket/:projectId/:ticketId", TicketController.updateTicket); //updates a specific topic inside a project
+router.put("/ticket/:projectId/:ticketId", TicketController.updateTicket); //updates a specific ticket inside a project
 router.delete("/ticket/:projectId/:ticketId", TicketController.deleteTicket); // deletes a ticket from a project
 
 //Comment Management
