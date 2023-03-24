@@ -2,25 +2,16 @@ const express = require("express");
 const router = express.Router();
 
 const ProjectsController = require("../controllers/ProjectsController");
-const TicketController = require("../controllers/TicketController");
-
-router.get("/verifyAuth", ProjectsController.verifyAuth);
 
 //Project Management
-router.post("/", ProjectsController.create); //creates a project
-router.get("/", ProjectsController.show); //returns all the projects of a certain user
-router.put("/:projectId", ProjectsController.update); //updates a project
+router.get("/", ProjectsController.showAllUserProjects); //returns all the projects of a certain user
+router.post("/", ProjectsController.createProject); //creates a project
+router.get("/:projectId", ProjectsController.getProject); //returns single project
+router.put("/:projectId", ProjectsController.updateProject); //updates a project
 router.delete("/:projectId", ProjectsController.deleteProject); //deletes a project
 
-//Ticket Management
-router.post("/ticket/:projectId", TicketController.createTicket); // creates a ticket in a specific project
-router.get("/ticket/:projectId", TicketController.showTickets); // return All tickets in a specific project
-router.put("/ticket/:projectId/:ticketId", TicketController.updateTicket); //updates a specific ticket inside a project
-router.delete("/ticket/:projectId/:ticketId", TicketController.deleteTicket); // deletes a ticket from a project
-
-//Comment Management
-// router.post("/ticket/:projectId/:ticketId", CommentsController.showTickets);
-// router.get("/ticket/:projectId/:ticketId", CommentsController.showTickets);
-// router.put("/ticket/:projectId/:ticketId", CommentsController.showTickets);
+router.get("/:projectId/supervisors", ProjectsController.getSupervisors); //add a supervisor
+router.post("/:projectId/supervisors", ProjectsController.addSupervisor); //add a supervisor
+router.delete("/:projectId/supervisors", ProjectsController.removeSupervisor); //add a supervisor
 
 module.exports = router;

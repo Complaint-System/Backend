@@ -3,10 +3,13 @@ const Schema = mongoose.Schema;
 
 const commentSchema = new Schema(
   {
-    creator: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    creatorId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    ticketId: { type: Schema.Types.ObjectId, ref: "Ticket", required: true },
+    proejctId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
     text: { type: String, required: true },
   },
-  { timestamps: true }
+  { timestamps: true },
+  { strict: "throw" }
 );
 
 const Comment = mongoose.model("Comment", commentSchema);

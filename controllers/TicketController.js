@@ -10,6 +10,7 @@ const createTicket = async (req, res, next) => {
       projectId: req.params.projectId,
       title: req.body.title,
       description: req.body.description,
+      priority: req.body.priority,
       comments: [],
     });
 
@@ -24,8 +25,9 @@ const createTicket = async (req, res, next) => {
 
 const showTickets = async (req, res, next) => {
   try {
+    const { projectId } = req.params;
     const tickets = await Ticket.find({
-      projectId: req.params.projectId,
+      projectId: projectId,
     }).populate({ path: "creatorId", select: "name" });
 
     if (tickets) {
@@ -69,23 +71,13 @@ const updateTicket = async (req, res, next) => {
 
 const deleteTicket = async (req, res, next) => {
   try {
-    const { projectId, ticketId } = req.params;
+    const { ticketId } = req.params;
 
-    const project = await Project.findById(projectId);
+    const deletedTicket = await Ticket.findByIdAndDelete(ticketId);
 
-    if (!project) {
-      return res.status(404).send({ error: "Project not found" });
-    }
-
-    const ticket = project.tickets.id(ticketId);
-
-    if (!ticket) {
+    if (!deletedTicket) {
       return res.status(404).send({ error: "Ticket not found" });
     }
-
-    ticket.remove();
-
-    await project.save();
 
     res.send({ message: "Ticket successfully deleted" });
   } catch (error) {
@@ -93,4 +85,30 @@ const deleteTicket = async (req, res, next) => {
   }
 };
 
-module.exports = { createTicket, showTickets, updateTicket, deleteTicket };
+const getTicket = async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const { comments } = req.query;
+
+    const ticket = await Ticket.findById(ticketId)
+      .populate({ path: "creatorId", select: "name" })
+      .populate({ path: "projectId", select: "name" })
+      .populate({
+        path: "comments",
+      });
+    if (!ticket) {
+      return res.status(404).send({ error: "Ticket not found" });
+    }
+    return res.status(200).json(ticket);
+  } catch (error) {
+    return res.status(400).send({ message: "Failed to get ticket", error });
+  }
+};
+
+module.exports = {
+  createTicket,
+  showTickets,
+  updateTicket,
+  deleteTicket,
+  getTicket,
+};

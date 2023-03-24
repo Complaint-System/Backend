@@ -3,18 +3,30 @@ const { Ticket } = require("../models/Ticket");
 const { Comment } = require("../models/Comment");
 const { User } = require("../models/User");
 
-const create = async (req, res, next) => {
+const showAllUserProjects = async (req, res, next) => {
   try {
-    // const user = await User.findById(req.user.id);
-    // if (!user) {
-    //   return res.status(404).send({ error: "User not found" });
-    // }
+    const projects = await Project.find({ ownerId: req.user.id }).select(
+      "-tickets"
+    );
+    if (projects) return res.json(projects);
+    else {
+      return res.status(404).send({ error: "No projects have been found" });
+    }
+  } catch (error) {
+    return res
+      .status(400)
+      .send({ error: "Failed to retrieve projects", message: error.message });
+  }
+};
 
+const createProject = async (req, res, next) => {
+  try {
     const project = new Project({
-      owner: req.user.id,
+      ownerId: req.user.id,
       tickets: [],
       name: req.body.name,
       description: req.body.description,
+      image: req.body.image,
     });
 
     const savedProject = await project.save();
@@ -28,37 +40,13 @@ const create = async (req, res, next) => {
   }
 };
 
-const show = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).send({ error: "User not found" });
-    }
-
-    const projects = await Project.find({ owner: req.user.id });
-    if (projects) return res.json(projects);
-    else {
-      return res.status(404).send({ error: "No projects have been found" });
-    }
-  } catch (error) {
-    return res
-      .status(400)
-      .send({ error: "Failed to retrieve projects", message: error.message });
-  }
-};
-
-const update = async (req, res, next) => {
+const updateProject = async (req, res, next) => {
   try {
     const project = await Project.findById(req.params.projectId);
     if (!project) {
       return res.status(404).send({ error: "Project not found" });
     }
 
-    if (project.owner.toString() !== req.user.id) {
-      return res
-        .status(403)
-        .send({ error: "You are not authorized to update this project" });
-    }
     const updates = req.body;
     const updatedProject = await Project.findByIdAndUpdate(
       req.params.projectId,
@@ -76,22 +64,12 @@ const update = async (req, res, next) => {
 };
 
 const deleteProject = async (req, res, next) => {
-  // const project = await Project.findById({id: req.params.projectId})
-  // if (!project) {
-  //     return res.status(404).send({ error: "Project not found" });
-  //   }
-
   try {
     const project = await Project.findById(req.params.projectId);
     if (!project) {
       return res.status(404).send({ error: "Project not found" });
     }
 
-    if (project.owner.toString() !== req.user.id) {
-      return res
-        .status(403)
-        .send({ error: "You are not authorized to delete this project" });
-    }
     await project.remove();
 
     return res.status(200).send({ message: "Successfully deleted project" });
@@ -100,11 +78,116 @@ const deleteProject = async (req, res, next) => {
   }
 };
 
-const verifyAuth = async (req, res) => {
-  res.json({
-    message: "Authentication Succeed",
-    user: req.user.id,
-  });
+const getProject = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { populate, select } = req.query;
+
+    const project = await Project.findById(projectId)
+      .select(select)
+      .populate(populate);
+    if (!project) {
+      return res.status(404).send({ error: "Project not found" });
+    }
+    return res.status(200).json(project);
+  } catch (error) {
+    return res.status(400).send({ message: "Failed to get project", error });
+  }
 };
 
-module.exports = { create, show, update, deleteProject, verifyAuth };
+const getSupervisors = async (req, res) => {
+  const { projectId } = req.params;
+
+  try {
+    const supervisors = await Project.findById(projectId)
+      .select("supervisors")
+      .populate({
+        path: "supervisors",
+        select: "name email phone",
+      });
+
+    return res.status(200).json(supervisors);
+  } catch (error) {
+    return res.status(500).json({ errorMsg: error, error: true });
+  }
+};
+
+const addSupervisor = async (req, res) => {
+  const { projectId } = req.params;
+  const { supervisorId } = req.body;
+
+  try {
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res
+        .status(404)
+        .json({ message: "Project not found", error: true });
+    }
+
+    const supervisor = await User.findById(supervisorId, "_id");
+    if (!supervisor) {
+      return res
+        .status(404)
+        .json({ message: "Supervisor not found", error: true });
+    }
+    if (project.supervisors.includes(supervisor._id)) {
+      return res
+        .status(404)
+        .json({ message: "Supervisor already added", error: true });
+    }
+
+    project.supervisors.push(supervisorId);
+    await project.save();
+    return res.status(200).json({
+      message: "Supervisor added",
+      supervisors: project.supervisors,
+      error: false,
+    });
+  } catch (error) {
+    return res.status(500).json({ errorMsg: error, error: true });
+  }
+};
+
+const removeSupervisor = async (req, res) => {
+  const { projectId } = req.params;
+  const { supervisorId } = req.body;
+
+  try {
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res
+        .status(404)
+        .json({ message: "Project not found", error: true });
+    }
+
+    if (!project.supervisors.includes(supervisorId)) {
+      return res
+        .status(404)
+        .json({ message: "Supervisor doesn't exist ", error: true });
+    }
+
+    project.supervisors = project.supervisors.filter(
+      (element) => element != supervisorId
+    );
+
+    await project.save();
+    return res.status(200).json({
+      message: "Supervisor removed",
+      supervisors: project.supervisors,
+      error: false,
+    });
+  } catch (error) {
+    return res.status(500).json({ errorMsg: error, error: true });
+  }
+};
+
+module.exports = {
+  createProject,
+  showAllUserProjects,
+  updateProject,
+  deleteProject,
+  getProject,
+  addSupervisor,
+  removeSupervisor,
+  getSupervisors,
+};

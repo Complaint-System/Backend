@@ -10,9 +10,10 @@ const ticketSchema = new Schema(
     title: { type: String },
     description: { type: String },
     priority: { type: String, enum: ["High", "Medium", "Low"] },
-    comments: [Comment.commentSchema],
+    comments: [{ type: Schema.Types.ObjectId, ref: "Comment" }],
   },
-  { timestamps: true }
+  { timestamps: true },
+  { strict: "throw" }
 );
 
 const Ticket = mongoose.model("Ticket", ticketSchema);

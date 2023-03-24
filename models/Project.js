@@ -3,7 +3,7 @@ const Schema = mongoose.Schema;
 
 const projectSchema = new Schema(
   {
-    owner: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     supervisors: [{ type: Schema.Types.ObjectId, ref: "User", required: true }],
     tickets: [
       {
@@ -15,7 +15,8 @@ const projectSchema = new Schema(
     description: { type: String },
     image: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true },
+  { strict: "throw" }
 );
 
 const Project = mongoose.model("Project", projectSchema);

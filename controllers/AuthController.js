@@ -3,68 +3,30 @@ const { User } = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const register = (req, res, next) => {
-  let hashedPassword;
-  bcrypt.hash(req.body.password, 10, (err, hashedPass) => {
-    if (err) {
-      res.json({
-        error: err,
-      });
-    } else {
-      hashedPassword = hashedPass;
-      let user = new User({
-        name: req.body.name,
-        email: req.body.email,
-        phone: req.body.phone,
-        password: hashedPass,
-      });
-      user
-        .save()
-        .then((user) => {
-          res.json({ message: "User Added Successfuly" });
-        })
-        .catch((err) => {
-          res.json({ err: err });
-        });
-    }
-  });
+const register = async (req, res, next) => {
+  const { password, email, phone, name, isProjectOwner } = req.body;
+
+  const user = await User.find({ $or: [{ email: email }, { phone: phone }] });
+  if (user.length > 0) {
+    return res.status(409).json({
+      message: "User already exists!",
+    });
+  }
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({
+      name,
+      email,
+      phone,
+      isProjectOwner,
+      password: hashedPassword,
+    });
+    await user.save();
+    res.json({ message: "User Added Successfully" });
+  } catch (err) {
+    res.json({ err: err });
+  }
 };
-
-// const login = (req, res, next) => {
-//   var username = req.body.username;
-//   var password = req.body.password;
-
-//   User.findOne({ $or: [{ email: username }, { phone: username }] }).then(
-//     (user) => {
-//       if (user) {
-//         bcrypt.compare(password, user.password, function (err, result) {
-//           if (err) {
-//             res.json({
-//               error: err,
-//             });
-//           }
-//           if (result) {
-//             let token = jwt.sign({ id: user._id }, process.env.secretKey, {
-//               expiresIn: "1h",
-//             });
-//             res.json({
-//               message: "Successfuly connected",
-//               token,
-//             });
-//           } else {
-//             res.json({
-//               message: "Failed to login! Check credentials",
-//             });
-//           }
-//         });
-//       } else {
-//         res.json({
-//           message: "No user found!",
-//         });
-//       }
-//     }
-//   );
-// };
 
 const login = async (req, res, next) => {
   try {
@@ -90,6 +52,7 @@ const login = async (req, res, next) => {
       expiresIn: "1h",
     });
 
+    delete user.password;
     return res.status(200).json({
       message: "Successfully connected",
       token,
