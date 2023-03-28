@@ -1,6 +1,4 @@
 const { Project } = require("../models/Project");
-const { Ticket } = require("../models/Ticket");
-const { Comment } = require("../models/Comment");
 const { User } = require("../models/User");
 
 const showAllUserProjects = async (req, res, next) => {
@@ -103,7 +101,7 @@ const getSupervisors = async (req, res) => {
       .select("supervisors")
       .populate({
         path: "supervisors",
-        select: "name email phone",
+        select: "name email phone profileImage",
       });
 
     return res.status(200).json(supervisors);

@@ -12,6 +12,7 @@ const createTicket = async (req, res, next) => {
       description: req.body.description,
       priority: req.body.priority,
       comments: [],
+      closed: false,
     });
 
     const savedTicket = await ticket.save();
@@ -28,7 +29,7 @@ const showTickets = async (req, res, next) => {
     const { projectId } = req.params;
     const tickets = await Ticket.find({
       projectId: projectId,
-    }).populate({ path: "creatorId", select: "name" });
+    }).populate({ path: "creatorId", select: "name profileImage" });
 
     if (tickets) {
       return res.json(tickets);
@@ -44,26 +45,25 @@ const showTickets = async (req, res, next) => {
 
 const updateTicket = async (req, res, next) => {
   try {
-    const { projectId, ticketId } = req.params;
+    const { ticketId } = req.params;
+    const { title, description, priority, closed } = req.body;
 
-    const project = await Project.findById(projectId);
-
-    if (!project) {
-      return res.status(404).send({ error: "Project not found" });
-    }
-
-    const ticket = project.tickets.id(ticketId);
+    const ticket = await Ticket.findByIdAndUpdate(
+      ticketId,
+      {
+        title: title && title,
+        description: description && description,
+        priority: priority && priority,
+        closed: closed && closed,
+      },
+      { new: true }
+    );
 
     if (!ticket) {
-      return res.status(404).send({ error: "Ticket not found" });
+      return res.status(404).send({ error: "Ticket not found", ticket });
     }
 
-    ticket.title = req.body.title || ticket.title;
-    ticket.description = req.body.description || ticket.description;
-
-    await project.save();
-
-    res.send({ message: "Ticket updated successfully" });
+    res.send({ message: "Ticket updated successfully", ticket });
   } catch (error) {
     res.status(500).send({ message: "Failed to update ticket", error });
   }
@@ -88,20 +88,66 @@ const deleteTicket = async (req, res, next) => {
 const getTicket = async (req, res) => {
   try {
     const { ticketId } = req.params;
-    const { comments } = req.query;
 
-    const ticket = await Ticket.findById(ticketId)
-      .populate({ path: "creatorId", select: "name" })
-      .populate({ path: "projectId", select: "name" })
-      .populate({
+    const ticket = await Ticket.findById(ticketId).populate([
+      { path: "creatorId", select: "name" },
+      { path: "projectId", select: "name profileImage" },
+      {
         path: "comments",
-      });
+        populate: {
+          path: "creatorId",
+          select: "name profileImage",
+        },
+      },
+    ]);
+
     if (!ticket) {
       return res.status(404).send({ error: "Ticket not found" });
     }
-    return res.status(200).json(ticket);
+
+    return res.status(200).json({ ticket });
   } catch (error) {
     return res.status(400).send({ message: "Failed to get ticket", error });
+  }
+};
+
+const pushComment = async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const { text } = req.body;
+
+    const ticket = await Ticket.findById(ticketId);
+
+    const newComment = await Comment.create({
+      creatorId: req.user.id,
+      projectId: ticket.projectId,
+      text: text,
+      ticketId: ticketId,
+    });
+
+    ticket.comments.push(newComment._id);
+
+    await ticket.save();
+    return res.status(200).json({
+      newComment,
+      message: "Sucessfuly created a new comment",
+    });
+  } catch (error) {
+    res.status(500).json(error);
+  }
+};
+
+const deleteComment = async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const deletedComment = await Comment.findByIdAndDelete(commentId);
+
+    return res.status(200).json({
+      deletedComment,
+      message: "Comment sucessfuly deleted",
+    });
+  } catch (error) {
+    res.status(500).json(error);
   }
 };
 
@@ -111,4 +157,6 @@ module.exports = {
   updateTicket,
   deleteTicket,
   getTicket,
+  pushComment,
+  deleteComment,
 };

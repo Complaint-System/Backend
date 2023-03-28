@@ -23,6 +23,19 @@ const searchUser = async (req, res) => {
   }
 };
 
+const getUserById = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const user = await User.findById(userId).select("-password -updatedAt");
+    if (!user) {
+      return res.status(404).send({ error: "User not found" });
+    }
+    return res.status(200).json(user);
+  } catch (error) {
+    return res.status(400).send({ message: "Failed to get user", error });
+  }
+};
+
 const getMebyId = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select(
@@ -38,7 +51,7 @@ const getMebyId = async (req, res) => {
 };
 
 const updateMeById = async (req, res) => {
-  const { name, email, phone, password, profileImage } = req.body.data;
+  const { name, email, phone, profileImage } = req.body.data;
   try {
     const newUser = await User.findByIdAndUpdate(
       req.user.id,
@@ -47,7 +60,6 @@ const updateMeById = async (req, res) => {
         email: email && email,
         phone: phone && phone,
         profileImage: profileImage && profileImage,
-        password: password.length > 6 && (await bcrypt.hash(password, 10)),
       },
       { new: true }
     ).select("-password");
@@ -63,4 +75,47 @@ const updateMeById = async (req, res) => {
   }
 };
 
-module.exports = { searchUser, getMebyId, updateMeById };
+const resetPassword = async (req, res) => {
+  const { newPassword, currentPassword } = req.body;
+
+  try {
+    const user = await User.findById(req.user.id);
+    const isPasswordMatch = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+    if (!isPasswordMatch) throw "wrong current";
+
+    if (newPassword.length < 6) throw "short new";
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const newUser = await User.findByIdAndUpdate(req.user.id, {
+      password: hashedPassword,
+    });
+    return res.status(200).json({
+      message: "Sucessfuly updated password",
+    });
+  } catch (error) {
+    if (error === "wrong current") {
+      return res.status(400).send({
+        message: "Wrong current",
+      });
+    }
+    if (error === "short new") {
+      return res.status(400).send({
+        message: "Short new",
+      });
+    }
+    return res.status(400).send({
+      message: "Failed to update password",
+    });
+  }
+};
+
+module.exports = {
+  searchUser,
+  getMebyId,
+  updateMeById,
+  resetPassword,
+  getUserById,
+};

@@ -11,6 +11,7 @@ const ticketSchema = new Schema(
     description: { type: String },
     priority: { type: String, enum: ["High", "Medium", "Low"] },
     comments: [{ type: Schema.Types.ObjectId, ref: "Comment" }],
+    closed: { type: Boolean },
   },
   { timestamps: true },
   { strict: "throw" }
