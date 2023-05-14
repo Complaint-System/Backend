@@ -15,8 +15,7 @@ const projectSchema = new Schema(
     description: { type: String },
     image: { type: String },
   },
-  { timestamps: true },
-  { strict: "throw" }
+  { timestamps: true, strict: "throw" }
 );
 
 const Project = mongoose.model("Project", projectSchema);

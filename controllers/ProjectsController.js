@@ -1,19 +1,49 @@
 const { Project } = require("../models/Project");
 const { User } = require("../models/User");
+const { Ticket } = require("../models/Ticket");
+const { Comment } = require("../models/Comment");
 
 const showAllUserProjects = async (req, res, next) => {
   try {
-    const projects = await Project.find({ ownerId: req.user.id }).select(
-      "-tickets"
-    );
-    if (projects) return res.json(projects);
-    else {
+    const projects = await Project.find({
+      $or: [{ ownerId: req.user.id }, { supervisors: { $in: [req.user.id] } }],
+    }).populate({
+      path: "tickets",
+      select: "_id",
+    });
+
+    const projectsWithTicketCount = projects.map((project) => {
+      const { tickets, ...rest } = project.toObject();
+      return {
+        ...rest,
+        tickets,
+        ticketCount: project.tickets.length,
+        supervisorCount: project.supervisors.length,
+      };
+    });
+
+    if (!projectsWithTicketCount) {
       return res.status(404).send({ error: "No projects have been found" });
     }
+
+    return res.json(projectsWithTicketCount);
   } catch (error) {
     return res
       .status(400)
       .send({ error: "Failed to retrieve projects", message: error.message });
+  }
+};
+
+const showAllUserProjectsNames = async (req, res, next) => {
+  try {
+    const { select } = req.query;
+    const projects = await Project.find({
+      $or: [{ ownerId: req.user.id }, { supervisors: { $in: [req.user.id] } }],
+    }).select(select);
+
+    return res.json(projects);
+  } catch (error) {
+    return res.json("Error retriving data");
   }
 };
 
@@ -69,6 +99,10 @@ const deleteProject = async (req, res, next) => {
     }
 
     await project.remove();
+
+    await Ticket.deleteMany({ projectId: project._id });
+
+    await Comment.deleteMany({ projectId: project._id });
 
     return res.status(200).send({ message: "Successfully deleted project" });
   } catch (error) {
@@ -188,4 +222,5 @@ module.exports = {
   addSupervisor,
   removeSupervisor,
   getSupervisors,
+  showAllUserProjectsNames,
 };

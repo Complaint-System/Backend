@@ -3,36 +3,64 @@ const { Ticket } = require("../models/Ticket");
 const { Comment } = require("../models/Comment");
 const { User } = require("../models/User");
 
+const startDate = new Date("2023-04-15"); // Start date
+const endDate = new Date("2023-04-21"); // End date
+
+function getRandomDate() {
+  const startTime = startDate.getTime(); // Get the time value of the start date
+  const endTime = endDate.getTime(); // Get the time value of the end date
+  const randomTime = Math.random() * (endTime - startTime) + startTime; // Generate a random time value within the range
+  const randomDate = new Date(randomTime); // Create a new date object using the random time value
+  return randomDate;
+}
+
 const createTicket = async (req, res, next) => {
   try {
+    const { id: creatorId } = req.user;
+    const { projectId } = req.params;
+    const { title, description, priority } = req.body;
+    const randomDate = getRandomDate(startDate, endDate);
+
     const ticket = new Ticket({
-      creatorId: req.user.id,
-      projectId: req.params.projectId,
-      title: req.body.title,
-      description: req.body.description,
-      priority: req.body.priority,
+      creatorId,
+      projectId: projectId,
+      title,
+      description,
+      priority,
       comments: [],
       closed: false,
+      index: 0,
+      createdAt: randomDate,
     });
-
     const savedTicket = await ticket.save();
+    const project = await Project.findById(projectId);
+    project.tickets.push(ticket._id);
+    await project.save();
+
     return res
       .status(201)
       .send({ message: "Successfully created", savedTicket });
   } catch (error) {
-    return res.status(500).send({ error: "Failed to create ticket" });
+    return res.status(500).send({ message: "Failed to create ticket", error });
   }
 };
 
 const showTickets = async (req, res, next) => {
   try {
     const { projectId } = req.params;
+
+    const project = await Project.findById(projectId).select(
+      "name description image"
+    );
     const tickets = await Ticket.find({
       projectId: projectId,
     }).populate({ path: "creatorId", select: "name profileImage" });
 
     if (tickets) {
-      return res.json(tickets);
+      return res.json({
+        project,
+        tickets,
+      });
     } else {
       return res.status(404).send({ error: "No tickets have been found" });
     }
@@ -75,13 +103,13 @@ const deleteTicket = async (req, res, next) => {
 
     const deletedTicket = await Ticket.findByIdAndDelete(ticketId);
 
-    if (!deletedTicket) {
-      return res.status(404).send({ error: "Ticket not found" });
-    }
+    const deletedComments = await Comment.deleteMany({
+      ticketId: deletedTicket._id,
+    });
 
     res.send({ message: "Ticket successfully deleted" });
   } catch (error) {
-    return res.status(500).send({ error: "Failed to delete ticket" });
+    return res.status(500).send({ message: "Failed to delete ticket", error });
   }
 };
 
@@ -90,8 +118,8 @@ const getTicket = async (req, res) => {
     const { ticketId } = req.params;
 
     const ticket = await Ticket.findById(ticketId).populate([
-      { path: "creatorId", select: "name" },
-      { path: "projectId", select: "name profileImage" },
+      { path: "creatorId", select: "name profileImage" },
+      { path: "projectId", select: "name" },
       {
         path: "comments",
         populate: {
