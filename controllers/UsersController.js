@@ -1,114 +1,139 @@
 const { User } = require("../models/User");
 const bcrypt = require("bcryptjs");
+const mongoose = require("mongoose");
 
 const searchUser = async (req, res) => {
-  const { searchQuery } = req.query;
-  if (!searchQuery) return res.status(404).json({ message: "No search query" });
+  const searchQuery = req.query.searchQuery?.trim();
+  if (!searchQuery) {
+    return res.status(400).json({ error: "Search query is required" });
+  }
+
   try {
-    const user = await User.find(
+    const users = await User.find(
       {
         $or: [
-          { name: { $regex: `^${searchQuery}` } },
-          { email: { $regex: `^${searchQuery}` } },
+          { name: { $regex: searchQuery, $options: "i" } },
+          { email: { $regex: searchQuery, $options: "i" } },
         ],
       },
-      "_id name email phone profileImage "
-    );
-    if (user.length === 0) {
-      return res.json({ message: "User not found" });
+      "_id name email phone profileImage"
+    ).lean();
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: "No users found" });
     }
-    return res.status(200).json(user);
+
+    return res.json(users);
   } catch (error) {
-    return res.status(500).json(error);
+    console.error(error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 const getUserById = async (req, res) => {
   const { userId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).send({ error: "Invalid user ID format" });
+  }
+
   try {
-    const user = await User.findById(userId).select("-password -updatedAt");
+    const user = await User.findById(userId)
+      .select("-password -updatedAt")
+      .lean();
     if (!user) {
       return res.status(404).send({ error: "User not found" });
     }
-    return res.status(200).json(user);
+    return res.json(user);
   } catch (error) {
-    return res.status(400).send({ message: "Failed to get user", error });
+    console.error(error);
+    return res.status(500).send({ error: "Internal server error" });
   }
 };
 
 const getMebyId = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select(
-      "-password -updatedAt"
-    );
+    const user = await User.findById(req.user.id)
+      .select("-password -updatedAt")
+      .lean();
     if (!user) {
-      return res.status(404).send({ error: "User not found" });
+      return res.status(404).json({ error: "User not found" });
     }
-    return res.status(200).json(user);
+    return res.json(user);
   } catch (error) {
-    return res.status(400).send({ message: "Failed to get user", error });
+    console.error(error);
+    return res.status(500).json({ error: "Failed to get user" });
   }
 };
 
 const updateMeById = async (req, res) => {
-  const { name, email, phone, profileImage } = req.body.data;
+  const { name, email, phone, profileImage } = req.body.data || {};
+
+  const updates = {};
+  if (name) updates.name = name;
+  if (email) updates.email = email;
+  if (phone) updates.phone = phone;
+  if (profileImage) updates.profileImage = profileImage;
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: "No valid fields to update" });
+  }
+
   try {
-    const newUser = await User.findByIdAndUpdate(
+    const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
-      {
-        name: name && name,
-        email: email && email,
-        phone: phone && phone,
-        profileImage: profileImage && profileImage,
-      },
+      { $set: updates },
       { new: true }
-    ).select("-password");
-    return res.status(200).json({
-      message: "Sucessfuly updated user",
-      newUser,
-      error: false,
+    )
+      .select("-password")
+      .lean();
+
+    return res.json({
+      message: "Successfully updated user",
+      updatedUser,
     });
   } catch (error) {
-    return res
-      .status(400)
-      .send({ message: "Failed to update user", error: true, errorMsg: error });
+    console.error(error);
+    return res.status(500).json({ error: "Failed to update user" });
   }
 };
 
 const resetPassword = async (req, res) => {
   const { newPassword, currentPassword } = req.body;
 
+  if (!currentPassword || !newPassword) {
+    return res
+      .status(400)
+      .json({ error: "Current and new passwords are required" });
+  }
+
   try {
     const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     const isPasswordMatch = await bcrypt.compare(
       currentPassword,
       user.password
     );
-    if (!isPasswordMatch) throw "wrong current";
+    if (!isPasswordMatch) {
+      return res.status(400).json({ error: "Incorrect current password" });
+    }
 
-    if (newPassword.length < 6) throw "short new";
+    if (newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ error: "New password must be at least 6 characters" });
+    }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    const newUser = await User.findByIdAndUpdate(req.user.id, {
-      password: hashedPassword,
-    });
-    return res.status(200).json({
-      message: "Sucessfuly updated password",
-    });
+    await User.findByIdAndUpdate(req.user.id, { password: hashedPassword });
+
+    return res.json({ message: "Password updated successfully" });
   } catch (error) {
-    if (error === "wrong current") {
-      return res.status(400).send({
-        message: "Wrong current",
-      });
-    }
-    if (error === "short new") {
-      return res.status(400).send({
-        message: "Short new",
-      });
-    }
-    return res.status(400).send({
-      message: "Failed to update password",
-    });
+    console.error(error);
+    return res.status(500).json({ error: "Failed to update password" });
   }
 };
 

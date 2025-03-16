@@ -135,7 +135,7 @@ const getTicket = async (req, res) => {
 
     return res.status(200).json({ ticket });
   } catch (error) {
-    return res.status(400).send({ message: "Failed to get ticket", error });
+    return res.status(500).send({ message: "Failed to get ticket", error });
   }
 };
 

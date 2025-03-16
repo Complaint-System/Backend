@@ -6,12 +6,19 @@ const jwt = require("jsonwebtoken");
 const register = async (req, res, next) => {
   const { password, email, phone, name, isProjectOwner } = req.body;
 
+  if (!email || !phone || !password || !name) {
+    return res.status(400).json({
+      message: "Please fill all fields",
+    });
+  }
+
   const user = await User.find({ $or: [{ email: email }, { phone: phone }] });
   if (user.length > 0) {
     return res.status(409).json({
       message: "User already exists!",
     });
   }
+
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({
@@ -23,14 +30,23 @@ const register = async (req, res, next) => {
     });
     await user.save();
     res.json({ message: "User Added Successfully" });
-  } catch (err) {
-    res.json({ err: err });
+  } catch (error) {
+    return res.status(500).json({
+      message: "An error occurred while registering user",
+      error: error.message,
+    });
   }
 };
 
 const login = async (req, res, next) => {
   try {
     const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({
+        message: "Invalid input",
+      });
+    }
 
     const user = await User.findOne({
       $or: [{ email: username }, { phone: username }],
